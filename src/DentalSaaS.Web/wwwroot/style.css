@@ -1,0 +1,135 @@
+/* Dental SaaS Modern HealthTech Stylesheet */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --primary: #0284c7;
+  --primary-hover: #0369a1;
+  --primary-light: #e0f2fe;
+  --secondary: #0f172a;
+  --accent-red: #ef4444;
+  --accent-green: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-purple: #8b5cf6;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+}
+
+/* Microinteracciones y Retroalimentación Táctil */
+.btn-smooth {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+.btn-smooth:hover {
+  transform: translateY(-1px);
+}
+.btn-smooth:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.card-hover {
+  transition: all 0.25s ease-out;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -8px rgba(2, 132, 199, 0.15);
+}
+
+/* Semáforo de Alertas Médicas Parpadeante */
+@keyframes alertPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(239, 68, 68, 0);
+  }
+}
+
+.alert-pulse-critical {
+  animation: alertPulse 2s infinite ease-in-out;
+}
+
+@keyframes waitingPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+.waiting-dot {
+  animation: waitingPulse 1.5s infinite ease-in-out;
+}
+
+/* Odontograma SVG Styles Profesionales */
+.tooth-surface {
+  transition: fill 0.12s ease, stroke 0.12s ease;
+  cursor: pointer;
+  shape-rendering: geometricPrecision;
+}
+.tooth-surface:hover {
+  filter: brightness(0.85);
+  stroke: #0284c7 !important;
+  stroke-width: 2.5 !important;
+}
+.tooth-surface:active {
+  filter: brightness(0.7);
+}
+
+.tooth-box {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+.tooth-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -4px rgba(0,0,0,0.1);
+}
+
+/* Colores Clínicos Odontograma */
+.cond-healthy { fill: #ffffff; stroke: #94a3b8; }
+.cond-caries { fill: #ef4444 !important; stroke: #b91c1c; } /* Rojo */
+.cond-resin { fill: #2563eb !important; stroke: #1d4ed8; }  /* Azul */
+.cond-sealant { fill: #10b981 !important; stroke: #047857; }/* Verde */
+.cond-amalgam { fill: #475569 !important; stroke: #334155; }/* Gris Oscuro */
+.cond-crown { fill: #f59e0b !important; stroke: #d97706; }  /* Amarillo/Dorado */
+.cond-endodontics { fill: #8b5cf6 !important; stroke: #6d28d9; } /* Morado */
+.cond-missing { fill: #1e293b !important; stroke: #0f172a; } /* Negro */
+
+/* Barra de Navegación Móvil */
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(226, 232, 240, 0.8);
+    z-index: 50;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .dark .mobile-bottom-nav {
+    background: rgba(15, 23, 42, 0.95);
+    border-top: 1px solid rgba(30, 41, 59, 0.8);
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}

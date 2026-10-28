@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>DentalCare SaaS | Sistema Integral Odontológico & Odontograma FDI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col pb-16 md:pb-0 transition-colors duration-200">
+
+  <!-- ================= TOP NAVIGATION BAR ================= -->
+  <header class="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 py-2.5 flex items-center justify-between">
+    <div class="flex items-center gap-2.5 sm:gap-3">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+      </div>
+      <div>
+        <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white leading-none">DentalCare <span class="text-sky-600">Cloud</span></h1>
+        <span class="text-[10px] sm:text-[11px] font-semibold text-slate-400">HealthTech SaaS • Folios & CFDI</span>
+      </div>
+    </div>
+
+    <!-- Navegación de Vistas y Roles (Desktop) -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <div id="signalr-status" class="hidden sm:inline-block"></div>
+
+      <!-- Selector Rápido de Vistas -->
+      <nav class="hidden md:flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+        <button onclick="switchView('booking')" class="nav-tab px-3 py-1.5 rounded-lg transition" data-view="booking">
+          📅 Agendar Cita
+        </button>
+        <button onclick="switchView('reception')" class="nav-tab px-3 py-1.5 rounded-lg transition" data-view="reception">
+          🏥 Recepción & Sala
+        </button>
+        <button onclick="switchView('doctor')" class="nav-tab px-3 py-1.5 rounded-lg transition" data-view="doctor">
+          🩺 Doctor & Folios
+        </button>
+        <button onclick="switchView('admin')" class="nav-tab px-3 py-1.5 rounded-lg transition" data-view="admin">
+          ⚙️ Administración
+        </button>
+        <button onclick="switchView('patient-portal')" class="nav-tab px-3 py-1.5 rounded-lg transition" data-view="patient-portal">
+          💊 Mi Expediente
+        </button>
+      </nav>
+
+      <!-- Dark Mode Switch -->
+      <button id="theme-toggle" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Alternar modo claro/oscuro">
+        🌓
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN CONTAINER ================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6">
+
+    <!-- ============================================================ -->
+    <!-- VISTA 1: WIZARD PÚBLICO DE AGENDAMIENTO (MOBILE-FIRST)       -->
+    <!-- ============================================================ -->
+    <section id="view-booking" class="max-w-3xl mx-auto space-y-4 sm:space-y-6">
+      
+      <!-- Stepper Header -->
+      <div class="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+              ⚡ Sin registro • Confirmación inmediata
+            </span>
+            <h2 class="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-1">Reserva tu Cita Dental</h2>
+          </div>
+          <div id="wizard-stepper" class="flex items-center overflow-x-auto pb-1 sm:pb-0"></div>
+        </div>
+      </div>
+
+      <!-- PASO 1: MOTIVO DE CONSULTA -->
+      <div id="wizard-step-1" class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">Paso 1: Elige el Tratamiento Dental</h3>
+          <span class="text-xs text-slate-500 font-medium">Precios transparentes</span>
+        </div>
+        <div id="services-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+      </div>
+
+      <!-- PASO 2: ESPECIALISTA -->
+      <div id="wizard-step-2" class="space-y-4 hidden">
+        <div class="flex items-center justify-between">
+          <button type="button" onclick="goToBookingStep(1)" class="btn-smooth inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
+            <span>← Paso Anterior</span>
+          </button>
+          <h3 class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">Paso 2: Selección de Doctor</h3>
+        </div>
+        <div id="dentists-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5"></div>
+      </div>
+
+      <!-- PASO 3: CALENDARIO Y SLOTS -->
+      <div id="wizard-step-3" class="space-y-4 sm:space-y-6 hidden">
+        <div class="flex items-center justify-between">
+          <button type="button" onclick="goToBookingStep(2)" class="btn-smooth inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
+            <span>← Paso Anterior</span>
+          </button>
+          <h3 class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">Paso 3: Fecha y Horario</h3>
+        </div>
+
+        <div class="p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Día de Consulta:</label>
+              <input type="date" id="booking-date-picker" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500">
+            </div>
+            <div class="text-[11px] text-slate-400">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1"></span>
+              Horarios disponibles calculados en tiempo real
+            </div>
+          </div>
+
+          <!-- Píldoras de Horarios -->
+          <div class="space-y-4">
+            <div>
+              <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2.5">
+                <span>☀️</span> Turno Mañana (09:00 AM - 01:00 PM)
+              </h4>
+              <div id="slots-morning" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="pt-2">
+              <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2.5">
+                <span>⛅</span> Turno Tarde (01:00 PM - 06:00 PM)
+              </h4>
+              <div id="slots-afternoon" class="flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+
+          <!-- Banner Lista de Espera -->
+          <div id="waitlist-banner" class="hidden p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+              <h5 class="text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-200">⏱️ Día completamente lleno</h5>
+              <p class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                Únete a la Lista de Espera. Si alguien cancela o no confirma su asistencia, te avisaremos al instante por WhatsApp.
+              </p>
+            </div>
+            <button onclick="joinWaitlistModal()" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md transition">
+              Anotarme en Espera
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PASO 4: DATOS DEL PACIENTE, CURP, FACTURACIÓN Y ALERTA MÉDICA -->
+      <div id="wizard-step-4" class="space-y-4 sm:space-y-5 hidden">
+        <div class="flex items-center justify-between">
+          <button type="button" onclick="goToBookingStep(3)" class="btn-smooth inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
+            <span>← Cambiar Horario</span>
+          </button>
+          <h3 class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">Paso 4: Datos del Paciente</h3>
+        </div>
+
+        <div id="booking-summary-badge"></div>
+
+        <form id="booking-form" onsubmit="submitBookingForm(event)" class="p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nombre(s) *</label>
+              <input type="text" id="form-first-name" required placeholder="Ej: Mateo" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-sky-500">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Apellidos *</label>
+              <input type="text" id="form-last-name" required placeholder="Ej: Hernández Soto" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-sky-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">WhatsApp / Móvil *</label>
+              <input type="tel" id="form-phone" required placeholder="55 1234 5678" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-sky-500">
+              <span class="text-[10px] text-slate-400">Recibirás confirmación y recordatorios</span>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">CURP (18 caracteres)</label>
+              <input type="text" id="form-curp" maxlength="18" placeholder="ABCD123456HDFR09" oninput="this.value = this.value.toUpperCase()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm uppercase tracking-wider focus:ring-2 focus:ring-sky-500">
+              <span class="text-[10px] text-slate-400">Para vincular tu expediente clínico</span>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email (Opcional)</label>
+              <input type="email" id="form-email" placeholder="correo@ejemplo.com" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-sky-500">
+            </div>
+          </div>
+
+          <!-- MÓDULO OPCIONAL: DATOS PARA FACTURACIÓN FISCAL (CFDI) -->
+          <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800 dark:text-slate-200">
+                <input type="checkbox" id="form-requires-invoice" onchange="document.getElementById('cfdi-box').classList.toggle('hidden', !this.checked)" class="rounded text-sky-600 focus:ring-sky-500">
+                <span>¿Requiere Factura Fiscal (CFDI)?</span>
+              </label>
+              <span class="text-[10px] text-slate-400 font-semibold">Opcional</span>
+            </div>
+
+            <div id="cfdi-box" class="hidden pt-2 border-t border-slate-200 dark:border-slate-700 space-y-3 text-xs">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">RFC (12 o 13 caracteres) *</label>
+                  <input type="text" id="form-tax-id" maxlength="13" placeholder="XAXX010101000" oninput="this.value = this.value.toUpperCase()" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 uppercase">
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Razón Social / Nombre Fiscal *</label>
+                  <input type="text" id="form-legal-name" placeholder="Nombre completo o empresa" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
+                </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Código Postal Fiscal *</label>
+                  <input type="text" id="form-tax-zip" maxlength="5" placeholder="06700" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Régimen Fiscal</label>
+                  <select id="form-tax-regime" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs">
+                    <option value="605">605 - Sueldos y Salarios</option>
+                    <option value="612">612 - Personas Físicas con Act. Empresarial</option>
+                    <option value="626">626 - Régimen Simplificado de Confianza (RESICO)</option>
+                    <option value="601">601 - General de Ley Personas Morales</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Uso de CFDI</label>
+                  <select id="form-cfdi-usage" class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs">
+                    <option value="D01" selected>D01 - Honorarios médicos, dentales y hospitalarios</option>
+                    <option value="G03">G03 - Gastos en general</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cuestionario de Alertas Médicas (Semáforo de Seguridad Clínica) -->
+          <div class="p-4 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/60 space-y-3">
+            <h4 class="text-xs font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🛡️</span> Cuestionario de Seguridad Médica
+            </h4>
+
+            <div class="space-y-2.5 text-xs">
+              <div>
+                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-800 dark:text-slate-200">
+                  <input type="checkbox" id="form-has-allergy" onchange="document.getElementById('allergy-input-box').classList.toggle('hidden', !this.checked)" class="rounded text-sky-600 focus:ring-sky-500">
+                  <span>¿Tiene alguna alergia (penicilina, látex, AINEs) o enfermedad crónica?</span>
+                </label>
+                <div id="allergy-input-box" class="hidden mt-2">
+                  <input type="text" id="form-allergy-desc" placeholder="Detalla: ej. Alergia a Penicilina, Hipertensión, Diabetes, Embarazo..." class="w-full px-3 py-2 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-800 text-xs">
+                </div>
+              </div>
+
+              <div>
+                <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-800 dark:text-slate-200">
+                  <input type="checkbox" id="form-has-pain" onchange="document.getElementById('pain-slider-box').classList.toggle('hidden', !this.checked)" class="rounded text-rose-600 focus:ring-rose-500">
+                  <span>¿Sufre de dolor dental actualmente en este momento?</span>
+                </label>
+                <div id="pain-slider-box" class="hidden mt-2.5 p-3 bg-white dark:bg-slate-800 rounded-xl border border-rose-200 dark:border-rose-800">
+                  <div class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <span>Intensidad del dolor (Escala EVA):</span>
+                    <span id="pain-val-display" class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200">5 / 10</span>
+                  </div>
+                  <input type="range" id="form-pain-level" min="1" max="10" value="5" oninput="document.getElementById('pain-val-display').textContent = this.value + ' / 10'" class="w-full accent-rose-600">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Política visible de cancelación y confirmación -->
+          <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+            <p><strong>⚠️ Políticas de la clínica:</strong></p>
+            <p>• Cancelaciones permitidas con un mínimo de <strong>24 horas (1 día) de anticipación</strong>.</p>
+            <p>• La cita debe confirmarse a más tardar <strong>15 minutos antes</strong> de la hora acordada, de lo contrario se pondrá en cola de reagendamiento.</p>
+          </div>
+
+          <div class="pt-1 flex flex-col sm:flex-row gap-2.5">
+            <button type="button" onclick="goToBookingStep(3)" class="w-full sm:w-1/3 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              ← Paso Anterior
+            </button>
+            <button type="submit" id="btn-submit-booking" class="w-full sm:w-2/3 py-3.5 px-6 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-sm shadow-lg shadow-sky-600/30 transition-all btn-smooth flex items-center justify-center gap-2">
+              <span>Confirmar y Agendar Cita</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- PANTALLA DE ÉXITO -->
+      <div id="wizard-step-success" class="hidden p-6 sm:p-8 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-5">
+        <div class="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl mx-auto shadow-inner">
+          ✓
+        </div>
+        <div>
+          <span class="text-xs font-bold text-emerald-600 uppercase tracking-widest">¡Cita Agendada con Éxito!</span>
+          <h3 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1">
+            Código: <span id="success-code" class="text-sky-600"></span>
+          </h3>
+          <p class="text-xs text-slate-500 mt-1">
+            Tu Número de Expediente Oficial es: <strong id="success-folio" class="text-slate-900 dark:text-white font-black"></strong>
+          </p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 max-w-md mx-auto text-left">
+          <span class="text-[11px] font-bold text-sky-800 dark:text-sky-300 block mb-1">🔗 Tu Magic Link de Autogestión:</span>
+          <a id="success-magic-url" href="#" target="_blank" class="text-xs font-bold text-sky-600 underline break-all"></a>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+          <button onclick="goToBookingStep(1)" class="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            Agendar otra cita
+          </button>
+          <button onclick="switchView('reception')" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md transition">
+            Ver en Sala de Espera →
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- VISTA 2: RECEPCIÓN Y FLUJO EN VIVO (QUIÉN ESTÁ EN SALA, SILLÓN Y SIGUE) -->
+    <!-- ============================================================ -->
+    <section id="view-reception" class="hidden space-y-5">
+      
+      <!-- Live Realtime Clinic Banner (REQUERIMIENTO: QUIÉN ESTÁ EN CONSULTA, SALA Y SIGUIENTE) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        <!-- 1. En Consulta Ahora -->
+        <div class="p-4 rounded-2xl bg-gradient-to-br from-sky-600 to-sky-700 text-white shadow-md space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-sky-200 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              En Consulta Ahora (Sillón)
+            </span>
+            <span id="live-in-chair-time" class="text-xs font-mono font-bold bg-sky-800/60 px-2 py-0.5 rounded">00:00</span>
+          </div>
+          <div id="live-in-chair-display" class="pt-1">
+            <h4 class="text-base font-black truncate">Cargando...</h4>
+            <p class="text-xs text-sky-100">Esperando datos de sillón</p>
+          </div>
+        </div>
+
+        <!-- 2. En Sala de Espera -->
+        <div class="p-4 rounded-2xl bg-amber-500 text-white shadow-md space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-100 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-white waiting-dot"></span>
+              En Sala de Espera
+            </span>
+            <span id="live-waiting-count" class="text-xs font-black bg-amber-600 px-2 py-0.5 rounded">0 pacientes</span>
+          </div>
+          <div id="live-waiting-display" class="pt-1">
+            <h4 class="text-base font-black truncate">Sala despejada</h4>
+            <p class="text-xs text-amber-100">Sin demoras activas</p>
+          </div>
+        </div>
+
+        <!-- 3. Siguiente por su Nombre -->
+        <div class="p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-md space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-200 flex items-center gap-1.5">
+              <span>👉</span> Siguiente en Turno
+            </span>
+            <span id="live-next-time" class="text-xs font-bold bg-emerald-800/60 px-2 py-0.5 rounded">Hora</span>
+          </div>
+          <div id="live-next-display" class="pt-1">
+            <h4 class="text-base font-black truncate">Nadie en espera</h4>
+            <p class="text-xs text-emerald-100">Próximo horario libre</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tablero Kanban de Flujo Clínico -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+        
+        <!-- Columna 1: Confirmadas / Por Llegar -->
+        <div class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-2.5 min-h-[380px]">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+            <h4 class="text-xs font-black uppercase text-slate-600 dark:text-slate-300">1. Por Llegar</h4>
+            <span id="count-confirmed" class="text-xs font-bold bg-white dark:bg-slate-800 px-2 py-0.5 rounded-full">0</span>
+          </div>
+          <div id="col-confirmed" class="space-y-2.5"></div>
+        </div>
+
+        <!-- Columna 2: En Sala de Espera -->
+        <div class="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 space-y-2.5 min-h-[380px]">
+          <div class="flex items-center justify-between pb-2 border-b border-amber-200 dark:border-amber-900/60">
+            <h4 class="text-xs font-black uppercase text-amber-800 dark:text-amber-200">2. En Sala de Espera</h4>
+            <span id="count-waiting" class="text-xs font-bold bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full">0</span>
+          </div>
+          <div id="col-waiting" class="space-y-2.5"></div>
+        </div>
+
+        <!-- Columna 3: En Sillón (En Consulta) -->
+        <div class="p-3.5 rounded-2xl bg-sky-50/60 dark:bg-sky-950/20 border border-sky-200/80 dark:border-sky-900/40 space-y-2.5 min-h-[380px]">
+          <div class="flex items-center justify-between pb-2 border-b border-sky-200 dark:border-sky-900/60">
+            <h4 class="text-xs font-black uppercase text-sky-800 dark:text-sky-200">3. En Sillón (Consulta)</h4>
+            <span id="count-in-chair" class="text-xs font-bold bg-sky-200 dark:bg-sky-900 text-sky-900 dark:text-sky-100 px-2 py-0.5 rounded-full">0</span>
+          </div>
+          <div id="col-in-chair" class="space-y-2.5"></div>
+        </div>
+
+        <!-- Columna 4: Finalizadas / Por Cobrar -->
+        <div class="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/40 space-y-2.5 min-h-[380px]">
+          <div class="flex items-center justify-between pb-2 border-b border-emerald-200 dark:border-emerald-900/60">
+            <h4 class="text-xs font-black uppercase text-emerald-800 dark:text-emerald-200">4. Finalizadas</h4>
+            <span id="count-completed" class="text-xs font-bold bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 px-2 py-0.5 rounded-full">0</span>
+          </div>
+          <div id="col-completed" class="space-y-2.5"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- VISTA 3: EXPEDIENTE CLÍNICO POR FOLIO, ODONTOGRAMA & IA     -->
+    <!-- ============================================================ -->
+    <section id="view-doctor" class="hidden space-y-5">
+      
+      <!-- Folio Search & Header Bar -->
+      <div class="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Expediente Médico Oficial</span>
+          <div class="flex items-center gap-2.5 mt-1">
+            <span id="patient-folio-badge" class="px-2.5 py-1 rounded-lg bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-mono font-black text-sm">FOLIO-00001</span>
+            <h2 id="patient-name-header" class="text-lg sm:text-2xl font-black text-slate-900 dark:text-white">Sofía Valenzuela</h2>
+          </div>
+          <p id="patient-curp-header" class="text-xs text-slate-400 font-mono mt-0.5">CURP: VAS920415MDFLN09</p>
+        </div>
+
+        <!-- Buscador de Folios y Herramientas del Doctor -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative">
+            <input type="text" id="input-search-folio" placeholder="Buscar Folio (ej. 00001)..." class="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white w-44 sm:w-56">
+            <button onclick="searchPatientByFolio()" class="absolute right-1.5 top-1.5 px-2 py-1 rounded-lg bg-sky-600 text-white text-[10px] font-bold">Buscar</button>
+          </div>
+          <button onclick="triggerClinicalAiModal()" class="btn-smooth px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md flex items-center gap-1.5">
+            <span>✨ Asistente IA</span>
+          </button>
+          <button onclick="saveOdontogramSnapshot()" class="btn-smooth px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md flex items-center gap-1.5">
+            <span>💾 Guardar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Semáforo de Alertas Médicas (Crítico) -->
+      <div id="doctor-alert-bar" class="hidden"></div>
+
+      <!-- Odontograma Profesional y Presupuesto -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-5 items-start">
+        
+        <!-- Canvas Odontograma SVG (3 Cols) -->
+        <div class="lg:col-span-3 p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div>
+              <h3 class="text-sm font-black text-slate-900 dark:text-white">Odontograma Interactivo (Nomenclatura FDI)</h3>
+              <p class="text-[11px] text-slate-400">Selecciona una herramienta y haz clic en la cara dental a marcar o borrar</p>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <div class="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
+                <button onclick="setOdontogramType('adult')" id="btn-odo-adult" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700 shadow-sm text-sky-600">Adulto (32)</button>
+                <button onclick="setOdontogramType('pediatric')" id="btn-odo-pediatric" class="px-2.5 py-1 rounded-lg text-slate-500">Infantil (20)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paleta de Herramientas Odontológicas (REPARADA CON BORRADOR/SANO) -->
+          <div class="flex flex-wrap items-center gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-bold">
+            <span class="text-[10px] uppercase text-slate-400 font-extrabold mr-1">Herramienta:</span>
+            
+            <!-- Herramienta Sano / Borrador -->
+            <button onclick="setPaletteTool('Healthy')" data-tool="Healthy" class="palette-btn px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shadow-sm">
+              <span>🧹 Borrador / Sano</span>
+            </button>
+
+            <!-- Caries -->
+            <button onclick="setPaletteTool('Caries')" data-tool="Caries" class="palette-btn px-3 py-1.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300 flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span> Caries (Rojo)
+            </button>
+
+            <!-- Resina / Obturación -->
+            <button onclick="setPaletteTool('Resin')" data-tool="Resin" class="palette-btn px-3 py-1.5 rounded-xl border border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Resina (Azul)
+            </button>
+
+            <!-- Corona -->
+            <button onclick="setPaletteTool('Crown')" data-tool="Crown" class="palette-btn px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Corona (Dorado)
+            </button>
+
+            <!-- Endodoncia -->
+            <button onclick="setPaletteTool('Endodontics')" data-tool="Endodontics" class="palette-btn px-3 py-1.5 rounded-xl border border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-purple-600"></span> Endodoncia
+            </button>
+
+            <!-- Extracción -->
+            <button onclick="setPaletteTool('Extraction')" data-tool="Extraction" class="palette-btn px-3 py-1.5 rounded-xl border border-rose-400 bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200 flex items-center gap-1">
+              <span>❌</span> Extracción
+            </button>
+
+            <!-- Ausente -->
+            <button onclick="setPaletteTool('Missing')" data-tool="Missing" class="palette-btn px-3 py-1.5 rounded-xl bg-slate-800 text-white flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-950"></span> Ausente
+            </button>
+          </div>
+
+          <!-- Lienzo SVG con las 5 Caras por Diente -->
+          <div id="odontogram-svg-canvas" class="overflow-x-auto py-2"></div>
+
+          <!-- Modos Preexistente vs Plan Presupuesto -->
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <span class="text-slate-400 font-medium">Modo de marcado actual:</span>
+            <div class="flex items-center gap-3 font-bold">
+              <label class="flex items-center gap-1 cursor-pointer">
+                <input type="radio" name="odoMode" value="1" onchange="AppState.activeTreatmentStatus=1; updateBudgetDisplay()">
+                <span>Estado Preexistente</span>
+              </label>
+              <label class="flex items-center gap-1 cursor-pointer text-sky-600">
+                <input type="radio" name="odoMode" value="2" checked onchange="AppState.activeTreatmentStatus=2; updateBudgetDisplay()">
+                <span>Plan de Tratamiento (+ Presupuesto)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Presupuesto y Notas SOAP (1 Col) -->
+        <div class="space-y-4">
+          <!-- Presupuesto Automático -->
+          <div class="p-4 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+              <h4 class="text-xs font-black uppercase text-slate-900 dark:text-white">Presupuesto en Tiempo Real</h4>
+              <span class="text-[10px] font-bold text-emerald-600 uppercase">Automático</span>
+            </div>
+            <div id="budget-items-list" class="space-y-1.5 max-h-40 overflow-y-auto text-xs"></div>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-500">Total Proyectado:</span>
+              <span id="budget-total-amount" class="text-lg font-black text-slate-900 dark:text-white">$0.00</span>
+            </div>
+          </div>
+
+          <!-- Digitalización de Expedientes en Papel y Radiografías -->
+          <div class="p-4 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-black uppercase text-slate-900 dark:text-white">Digitalización de Archivos</h4>
+              <span class="text-[10px] text-slate-400">PDFs / Rayos X</span>
+            </div>
+            <div class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-3 text-center cursor-pointer hover:border-sky-500 transition" onclick="document.getElementById('doc-file-input').click()">
+              <input type="file" id="doc-file-input" class="hidden" accept=".pdf,image/*" onchange="uploadPatientDocument(this)">
+              <span class="text-xs font-bold text-sky-600 dark:text-sky-400 block">+ Subir Escaneo o PDF</span>
+              <span class="text-[10px] text-slate-400">Migrar expediente físico a digital</span>
+            </div>
+            <div id="patient-documents-list" class="space-y-1.5 max-h-36 overflow-y-auto text-xs"></div>
+          </div>
+
+          <!-- Emitir Receta Médica -->
+          <div class="p-4 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-2.5">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-black uppercase text-slate-900 dark:text-white">Receta Médica Digital</h4>
+              <button onclick="openNewPrescriptionModal()" class="text-xs font-bold text-sky-600 hover:underline">+ Nueva</button>
+            </div>
+            <div id="patient-prescriptions-list" class="space-y-1.5 text-xs"></div>
+          </div>
+
+          <!-- Notas de Evolución -->
+          <div class="p-4 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+            <h4 class="text-xs font-black uppercase text-slate-900 dark:text-white">Notas Clínicas SOAP</h4>
+            <textarea id="doctor-notes-textarea" rows="3" placeholder="Observaciones del tratamiento realizado en esta sesión..." class="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"></textarea>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- VISTA 4: PANEL TOTALMENTE ADMINISTRATIVO (WHATSAPP & CFDI)   -->
+    <!-- ============================================================ -->
+    <section id="view-admin" class="hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+        
+        <!-- Agendamiento Telefónico Rápido -->
+        <div class="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div>
+            <span class="text-[10px] font-bold text-sky-600 uppercase tracking-widest">Recepción Telefónica</span>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Agendar Paciente por Llamada</h3>
+          </div>
+          <form onsubmit="quickAdminBooking(event)" class="space-y-3 text-xs">
+            <div>
+              <label class="block font-bold mb-1">Nombre Completo *</label>
+              <input type="text" id="admin-quick-name" required placeholder="Nombre del paciente" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+            </div>
+            <div>
+              <label class="block font-bold mb-1">WhatsApp Móvil *</label>
+              <input type="tel" id="admin-quick-phone" required placeholder="+52 55..." class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+            </div>
+            <div>
+              <label class="block font-bold mb-1">Tratamiento *</label>
+              <select id="admin-quick-service" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"></select>
+            </div>
+            <div>
+              <label class="block font-bold mb-1">Fecha y Hora *</label>
+              <input type="datetime-local" id="admin-quick-datetime" required class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+            </div>
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold transition">
+              Agendar Cita Inmediata
+            </button>
+          </form>
+        </div>
+
+        <!-- Disparador de WhatsApp Directo y Plantillas Oficiales -->
+        <div class="lg:col-span-2 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div>
+              <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Comunicación Directa</span>
+              <h3 class="text-base font-black text-slate-900 dark:text-white">Mensajería Directa por WhatsApp</h3>
+            </div>
+            <span class="text-xs font-mono text-slate-400">wa.me API</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-xs font-bold mb-1">Seleccionar Paciente Agendado:</label>
+              <select id="wa-patient-select" onchange="populateWhatsAppForm(this.value)" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1">Plantilla Rápida:</label>
+              <select id="wa-template-select" onchange="applyWhatsAppTemplate(this.value)" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs">
+                <option value="confirm-15m">Recordatorio 24h (Confirmar máx 15 min antes)</option>
+                <option value="location">Ubicación y cómo llegar</option>
+                <option value="reschedule">Aviso de reagendamiento automático</option>
+                <option value="postop">Cuidados postoperatorios</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold mb-1">Mensaje para WhatsApp:</label>
+            <textarea id="wa-message-text" rows="4" class="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono"></textarea>
+          </div>
+
+          <button onclick="launchWhatsAppDirect()" class="btn-smooth w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-2">
+            <span>Abrir WhatsApp y Enviar Mensaje Directo</span>
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+          </button>
+        </div>
+
+        <!-- Gestor de Agenda y Bloqueo / Liberación de Horarios en Vivo -->
+        <div class="lg:col-span-3 p-5 sm:p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div>
+              <span class="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Disponibilidad Médica en Vivo</span>
+              <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <span>⏱️</span> Bloquear y Liberar Horarios (Tiempo Real)
+              </h3>
+              <p class="text-xs text-slate-400">Control inmediato de la agenda médica para hoy o fechas futuras. Los cambios se sincronizan en vivo vía SignalR.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                <span class="w-2 h-2 mr-1.5 bg-rose-500 rounded-full animate-ping"></span>
+                Sincronización Inmediata
+              </span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <!-- Formulario para Bloquear Horario -->
+            <form onsubmit="submitBlockSchedule(event)" class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-3 text-xs">
+              <h4 class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>🔴</span> Bloquear Horario para el Doctor
+              </h4>
+              
+              <div>
+                <label class="block font-bold mb-1">Doctor(a) *</label>
+                <select id="block-dentist-select" required class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"></select>
+              </div>
+
+              <div>
+                <label class="block font-bold mb-1">Fecha *</label>
+                <input type="date" id="block-date-input" required class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block font-bold mb-1">Hora Inicio *</label>
+                  <input type="time" id="block-start-time" required value="14:00" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
+                </div>
+                <div>
+                  <label class="block font-bold mb-1">Hora Fin *</label>
+                  <input type="time" id="block-end-time" required value="15:30" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-bold mb-1">Motivo del Bloqueo</label>
+                <select id="block-reason-preset" onchange="document.getElementById('block-reason-text').value = this.value" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 mb-1.5">
+                  <option value="Cirugía Quirúrgica / Urgencia">Cirugía Quirúrgica / Urgencia</option>
+                  <option value="Reunión Clínica y Administrativa">Reunión Clínica y Administrativa</option>
+                  <option value="Almuerzo / Descanso Extendido">Almuerzo / Descanso Extendido</option>
+                  <option value="Capacitación / Congreso Dental">Capacitación / Congreso Dental</option>
+                  <option value="Permiso Personal / Trámite">Permiso Personal / Trámite</option>
+                </select>
+                <input type="text" id="block-reason-text" value="Cirugía Quirúrgica / Urgencia" placeholder="O escribe un motivo personalizado..." class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
+              </div>
+
+              <button type="submit" class="btn-smooth w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition flex items-center justify-center gap-1.5 shadow-md">
+                <span>🔴 Bloquear Este Horario</span>
+              </button>
+            </form>
+
+            <!-- Lista de Bloqueos en Vivo (y botón de Liberar Horario con 1-clic) -->
+            <div class="lg:col-span-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-3 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                  <h4 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>📋</span> Horarios Bloqueados Hoy / Fecha Seleccionada
+                  </h4>
+                  <button type="button" onclick="loadDoctorScheduleExceptions()" class="text-[11px] text-sky-600 font-bold hover:underline">
+                    🔄 Refrescar
+                  </button>
+                </div>
+
+                <div id="active-exceptions-list" class="space-y-2 mt-3 max-h-[220px] overflow-y-auto pr-1">
+                  <!-- Se llena dinámicamente con las excepciones y el botón Liberar -->
+                </div>
+              </div>
+
+              <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-200 flex items-center justify-between">
+                <div>
+                  <span class="font-black">¿Deseas abrir o liberar un horario bloqueado?</span>
+                  <p class="text-[11px] opacity-90">Haz clic en "Liberar Horario" en cualquier tarjeta superior para restablecer el cupo al instante.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- VISTA 5: PORTAL DEL PACIENTE (MIS RECETAS, CITAS Y TURNO)   -->
+    <!-- ============================================================ -->
+    <section id="view-patient-portal" class="hidden max-w-2xl mx-auto space-y-5">
+      <div class="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold text-sky-600 uppercase tracking-widest">Portal del Paciente</span>
+            <h3 class="text-xl font-black text-slate-900 dark:text-white" id="portal-patient-name">Expediente Personal</h3>
+          </div>
+          <div class="text-right">
+            <span class="text-xs text-slate-400">Folio Oficial:</span>
+            <span id="portal-patient-folio" class="block font-mono font-black text-sm text-sky-600">FOLIO-00003</span>
+          </div>
+        </div>
+
+        <!-- Estado de Cola en Vivo -->
+        <div class="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-bold text-sky-800 dark:text-sky-300">Estado de tu Turno:</span>
+            <p id="portal-turn-status" class="text-sm font-black text-sky-900 dark:text-white mt-0.5">Tienes el siguiente turno en sala de espera</p>
+          </div>
+          <span class="px-3 py-1 rounded-xl bg-sky-600 text-white font-mono font-black text-sm">Turno #1</span>
+        </div>
+
+        <!-- Recetas y Recordatorios de Medicinas -->
+        <div class="space-y-3 pt-2">
+          <h4 class="text-xs font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
+            <span>💊</span> Mis Medicamentos Activos y Horarios
+          </h4>
+          <div id="portal-prescriptions-container" class="space-y-2.5"></div>
+        </div>
+
+        <!-- Citas Programadas -->
+        <div class="space-y-3 pt-2">
+          <h4 class="text-xs font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
+            <span>📅</span> Mis Próximas Citas
+          </h4>
+          <div id="portal-appointments-container" class="space-y-2"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= MODAL ASISTENTE IA (CERO ALUCINACIONES) ================= -->
+  <div id="modal-ai-audit" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-sm">✨</div>
+          <div>
+            <h4 class="text-sm font-black text-slate-900 dark:text-white">Asistente IA Clínico Certificado</h4>
+            <span class="text-[10px] text-emerald-600 font-bold">● Cero Alucinaciones • Anclaje estricto a Folio</span>
+          </div>
+        </div>
+        <button onclick="closeClinicalAiModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+      </div>
+
+      <div id="ai-audit-content" class="flex-1 overflow-y-auto pr-1 text-xs space-y-3 text-slate-700 dark:text-slate-300">
+        <div class="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200">
+          Analizando expediente en la base de datos...
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+        <input type="text" id="ai-prompt-input" placeholder="Pregunta sobre este paciente (ej: ¿Puedo recetar amoxicilina?)..." class="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium">
+        <button onclick="askCustomAiQuery()" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition">Consultar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MOBILE BOTTOM NAVIGATION BAR ================= -->
+  <div class="mobile-bottom-nav md:hidden grid grid-cols-5 py-2 px-1 text-[10px] font-bold text-slate-500 text-center">
+    <button onclick="switchView('booking')" class="flex flex-col items-center gap-0.5">
+      <span class="text-base">📅</span>
+      <span>Citas</span>
+    </button>
+    <button onclick="switchView('reception')" class="flex flex-col items-center gap-0.5 text-sky-600">
+      <span class="text-base">🏥</span>
+      <span>Recepción</span>
+    </button>
+    <button onclick="switchView('doctor')" class="flex flex-col items-center gap-0.5">
+      <span class="text-base">🩺</span>
+      <span>Doctor</span>
+    </button>
+    <button onclick="switchView('admin')" class="flex flex-col items-center gap-0.5">
+      <span class="text-base">⚙️</span>
+      <span>Admin</span>
+    </button>
+    <button onclick="switchView('patient-portal')" class="flex flex-col items-center gap-0.5">
+      <span class="text-base">💊</span>
+      <span>Recetas</span>
+    </button>
+  </div>
+
+  <!-- Container para Toasts Dinámicos -->
+  <div id="toast-container" class="fixed bottom-16 md:bottom-5 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

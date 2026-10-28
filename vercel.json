@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "public": true,
+  "outputDirectory": "src/DentalSaaS.Web/wwwroot",
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "http://127.0.0.1:5005/api/$1"
+    },
+    {
+      "src": "/hubs/(.*)",
+      "dest": "http://127.0.0.1:5005/hubs/$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DentalSaaS.Application/DentalSaaS.Application.csproj" />
+    <Project Path="src/DentalSaaS.Domain/DentalSaaS.Domain.csproj" />
+    <Project Path="src/DentalSaaS.Infrastructure/DentalSaaS.Infrastructure.csproj" />
+    <Project Path="src/DentalSaaS.Web/DentalSaaS.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DentalSaaS.Tests/DentalSaaS.Tests.csproj" />
+  </Folder>
+</Solution>
