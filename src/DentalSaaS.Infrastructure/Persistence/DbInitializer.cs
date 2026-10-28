@@ -7,11 +7,100 @@ namespace DentalSaaS.Infrastructure.Persistence;
 
 public static class DbInitializer
 {
+    private static async Task ApplyPostgresPatchesAsync(ApplicationDbContext context)
+    {
+        if (context.Database.IsNpgsql())
+        {
+            var sql = """
+                -- 1. Tablas de Identity que puedan faltar
+                CREATE TABLE IF NOT EXISTS "AspNetUserClaims" (
+                    "Id" SERIAL PRIMARY KEY,
+                    "UserId" UUID NOT NULL REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE,
+                    "ClaimType" TEXT NULL,
+                    "ClaimValue" TEXT NULL
+                );
+                CREATE TABLE IF NOT EXISTS "AspNetUserLogins" (
+                    "LoginProvider" VARCHAR(128) NOT NULL,
+                    "ProviderKey" VARCHAR(128) NOT NULL,
+                    "ProviderDisplayName" TEXT NULL,
+                    "UserId" UUID NOT NULL REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE,
+                    PRIMARY KEY ("LoginProvider", "ProviderKey")
+                );
+                CREATE TABLE IF NOT EXISTS "AspNetUserTokens" (
+                    "UserId" UUID NOT NULL REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE,
+                    "LoginProvider" VARCHAR(128) NOT NULL,
+                    "Name" VARCHAR(128) NOT NULL,
+                    "Value" TEXT NULL,
+                    PRIMARY KEY ("UserId", "LoginProvider", "Name")
+                );
+                CREATE TABLE IF NOT EXISTS "AspNetRoleClaims" (
+                    "Id" SERIAL PRIMARY KEY,
+                    "RoleId" UUID NOT NULL REFERENCES "AspNetRoles"("Id") ON DELETE CASCADE,
+                    "ClaimType" TEXT NULL,
+                    "ClaimValue" TEXT NULL
+                );
+
+                -- 2. Tabla de Notificaciones
+                CREATE TABLE IF NOT EXISTS "NotificationLogs" (
+                    "Id" SERIAL PRIMARY KEY,
+                    "AppointmentId" INT NULL REFERENCES "Appointments"("Id") ON DELETE SET NULL,
+                    "WaitlistEntryId" INT NULL,
+                    "RecipientName" VARCHAR(150) NOT NULL,
+                    "RecipientContact" VARCHAR(100) NOT NULL,
+                    "Channel" INT NOT NULL DEFAULT 1,
+                    "NotificationType" INT NOT NULL DEFAULT 1,
+                    "Status" INT NOT NULL DEFAULT 1,
+                    "MessageBody" TEXT NULL,
+                    "ExternalMessageId" VARCHAR(150) NULL,
+                    "ErrorDetails" TEXT NULL,
+                    "RetryCount" INT NOT NULL DEFAULT 0,
+                    "ScheduledFor" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    "SentAt" TIMESTAMPTZ NULL,
+                    "DeliveredAt" TIMESTAMPTZ NULL,
+                    "ConfirmedAt" TIMESTAMPTZ NULL
+                );
+
+                -- 3. Parches de Columnas para Pacientes
+                ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "Address" TEXT NULL;
+                ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "EmergencyContactName" VARCHAR(150) NULL;
+                ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "EmergencyContactPhone" VARCHAR(30) NULL;
+                ALTER TABLE "Patients" ADD COLUMN IF NOT EXISTS "GeneralNotes" TEXT NULL;
+
+                -- 4. Parches de Alertas Médicas
+                ALTER TABLE "MedicalAlerts" ADD COLUMN IF NOT EXISTS "ReportedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+                -- 5. Parches de Lista de Espera
+                ALTER TABLE "WaitlistEntries" ADD COLUMN IF NOT EXISTS "PatientId" INT NULL REFERENCES "Patients"("Id") ON DELETE SET NULL;
+                ALTER TABLE "WaitlistEntries" ADD COLUMN IF NOT EXISTS "NotifiedAt" TIMESTAMPTZ NULL;
+                ALTER TABLE "WaitlistEntries" ADD COLUMN IF NOT EXISTS "ClaimExpiresAt" TIMESTAMPTZ NULL;
+
+                -- 6. Parches de Odontograma
+                ALTER TABLE "OdontogramRecords" ADD COLUMN IF NOT EXISTS "SnapshotTitle" VARCHAR(200) NOT NULL DEFAULT 'Estado Inicial al Ingreso';
+                ALTER TABLE "OdontogramRecords" ADD COLUMN IF NOT EXISTS "IsCurrentActive" BOOLEAN NOT NULL DEFAULT TRUE;
+
+                ALTER TABLE "ToothSurfaceStates" ADD COLUMN IF NOT EXISTS "ServiceCatalogId" INT NULL REFERENCES "ServiceCatalogs"("Id") ON DELETE SET NULL;
+                ALTER TABLE "ToothSurfaceStates" ADD COLUMN IF NOT EXISTS "ClinicalNotes" TEXT NULL;
+                ALTER TABLE "ToothSurfaceStates" ADD COLUMN IF NOT EXISTS "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW();
+                ALTER TABLE "ToothSurfaceStates" ADD COLUMN IF NOT EXISTS "UpdatedAt" TIMESTAMPTZ NULL;
+
+                -- 7. Parches de Usuarios, Dentistas y Citas
+                ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "LastLoginAt" TIMESTAMPTZ NULL;
+                ALTER TABLE "DentistProfiles" ADD COLUMN IF NOT EXISTS "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW();
+                ALTER TABLE "PaymentRecords" ADD COLUMN IF NOT EXISTS "InvoiceNumber" VARCHAR(50) NULL;
+                ALTER TABLE "Appointments" ADD COLUMN IF NOT EXISTS "RowVersion" BYTEA NULL;
+            """;
+            await context.Database.ExecuteSqlRawAsync(sql);
+        }
+    }
+
     public static async Task SeedAsync(
         ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager)
     {
+        // 0. Aplicar parches de columnas e índices para compatibilidad total con PostgreSQL / Neon
+        await ApplyPostgresPatchesAsync(context);
+
         // 1. Crear Roles si no existen
         string[] roles = [UserRoles.SuperAdmin, UserRoles.Dentist, UserRoles.Receptionist];
         foreach (var roleName in roles)
@@ -66,44 +155,48 @@ public static class DbInitializer
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(dentistUser, UserRoles.Dentist);
+            }
+        }
 
-                var profile = new DentistProfile
-                {
-                    UserId = dentistUser.Id,
-                    Specialty = "Odontología Restauradora y Estética",
-                    LicenseNumber = "ODONT-84920",
-                    Biography = "Especialista en odontología conservadora y diseño de sonrisa con más de 10 años de experiencia clínica.",
-                    CalendarColorHex = "#2563EB",
-                    MaxDailyAppointments = 12,
-                    IsActive = true
-                };
+        var profile = await context.DentistProfiles.FirstOrDefaultAsync(d => d.UserId == dentistUser.Id);
+        if (profile == null)
+        {
+            profile = new DentistProfile
+            {
+                UserId = dentistUser.Id,
+                Specialty = "Odontología Restauradora y Estética",
+                LicenseNumber = "ODONT-84920",
+                Biography = "Especialista en odontología conservadora y diseño de sonrisa con más de 10 años de experiencia clínica.",
+                CalendarColorHex = "#2563EB",
+                MaxDailyAppointments = 12,
+                IsActive = true
+            };
 
-                // Horario de Lunes a Viernes 9:00 a 18:00 (almuerzo 13:00 - 14:00) y Sábado 9:00 a 13:00
-                for (int day = 1; day <= 5; day++)
-                {
-                    profile.WorkSchedules.Add(new WorkSchedule
-                    {
-                        DayOfWeek = (DayOfWeek)day,
-                        StartTime = new TimeSpan(9, 0, 0),
-                        EndTime = new TimeSpan(18, 0, 0),
-                        HasLunchBreak = true,
-                        LunchBreakStart = new TimeSpan(13, 0, 0),
-                        LunchBreakEnd = new TimeSpan(14, 0, 0),
-                        IsWorkingDay = true
-                    });
-                }
+            // Horario de Lunes a Viernes 9:00 a 18:00 (almuerzo 13:00 - 14:00) y Sábado 9:00 a 13:00
+            for (int day = 1; day <= 5; day++)
+            {
                 profile.WorkSchedules.Add(new WorkSchedule
                 {
-                    DayOfWeek = DayOfWeek.Saturday,
+                    DayOfWeek = (DayOfWeek)day,
                     StartTime = new TimeSpan(9, 0, 0),
-                    EndTime = new TimeSpan(13, 0, 0),
-                    HasLunchBreak = false,
+                    EndTime = new TimeSpan(18, 0, 0),
+                    HasLunchBreak = true,
+                    LunchBreakStart = new TimeSpan(13, 0, 0),
+                    LunchBreakEnd = new TimeSpan(14, 0, 0),
                     IsWorkingDay = true
                 });
-
-                context.DentistProfiles.Add(profile);
-                await context.SaveChangesAsync();
             }
+            profile.WorkSchedules.Add(new WorkSchedule
+            {
+                DayOfWeek = DayOfWeek.Saturday,
+                StartTime = new TimeSpan(9, 0, 0),
+                EndTime = new TimeSpan(13, 0, 0),
+                HasLunchBreak = false,
+                IsWorkingDay = true
+            });
+
+            context.DentistProfiles.Add(profile);
+            await context.SaveChangesAsync();
         }
 
         // 4. Crear Recepcionista de Ejemplo
@@ -306,8 +399,15 @@ public static class DbInitializer
 
             context.Patients.AddRange(p1, p2, p3);
             await context.SaveChangesAsync();
+        }
 
-            // Citas activas para demostración del tablero en vivo
+        // 8. Citas activas para demostración del tablero en vivo
+        if (!await context.Appointments.AnyAsync())
+        {
+            var p1 = await context.Patients.FirstOrDefaultAsync(p => p.FolioNumber == "FOLIO-00001") ?? await context.Patients.FirstAsync();
+            var p2 = await context.Patients.FirstOrDefaultAsync(p => p.FolioNumber == "FOLIO-00002") ?? await context.Patients.Skip(1).FirstAsync();
+            var p3 = await context.Patients.FirstOrDefaultAsync(p => p.FolioNumber == "FOLIO-00003") ?? await context.Patients.Skip(2).FirstAsync();
+
             var dentist = await context.DentistProfiles.FirstAsync();
             var chairs = await context.DentalChairs.ToListAsync();
             var service1 = await context.ServiceCatalogs.FirstAsync();
@@ -364,35 +464,38 @@ public static class DbInitializer
                 PatientBookingNotes = "Dolor agudo e inflamación en muela del juicio"
             });
 
-            // Receta activa de ejemplo para Mariana con recordatorio de medicamentos
-            var presc = new Prescription
+            if (!await context.Prescriptions.AnyAsync())
             {
-                PatientId = p3.Id,
-                DentistId = dentist.Id,
-                PrescriptionFolio = "REC-00001",
-                Diagnosis = "Pulpitis aguda reversible / Dolor postquirúrgico",
-                GeneralInstructions = "Tomar abundantes líquidos y evitar alimentos duros o calientes por 48 horas.",
-                CreatedAt = now.AddDays(-1)
-            };
-            presc.Items.Add(new PrescriptionItem
-            {
-                MedicineName = "Ibuprofeno 600mg",
-                Dosage = "1 tableta cada 8 horas",
-                FrequencyHours = 8,
-                DurationDays = 4,
-                Instructions = "Tomar después de los alimentos. No exceder 3 tomas al día.",
-                StartDate = now.AddDays(-1)
-            });
-            presc.Items.Add(new PrescriptionItem
-            {
-                MedicineName = "Clindamicina 300mg",
-                Dosage = "1 cápsula cada 6 horas",
-                FrequencyHours = 6,
-                DurationDays = 7,
-                Instructions = "Completar los 7 días obligatoriamente.",
-                StartDate = now.AddDays(-1)
-            });
-            context.Prescriptions.Add(presc);
+                // Receta activa de ejemplo para Mariana con recordatorio de medicamentos
+                var presc = new Prescription
+                {
+                    PatientId = p3.Id,
+                    DentistId = dentist.Id,
+                    PrescriptionFolio = "REC-00001",
+                    Diagnosis = "Pulpitis aguda reversible / Dolor postquirúrgico",
+                    GeneralInstructions = "Tomar abundantes líquidos y evitar alimentos duros o calientes por 48 horas.",
+                    CreatedAt = now.AddDays(-1)
+                };
+                presc.Items.Add(new PrescriptionItem
+                {
+                    MedicineName = "Ibuprofeno 600mg",
+                    Dosage = "1 tableta cada 8 horas",
+                    FrequencyHours = 8,
+                    DurationDays = 4,
+                    Instructions = "Tomar después de los alimentos. No exceder 3 tomas al día.",
+                    StartDate = now.AddDays(-1)
+                });
+                presc.Items.Add(new PrescriptionItem
+                {
+                    MedicineName = "Clindamicina 300mg",
+                    Dosage = "1 cápsula cada 6 horas",
+                    FrequencyHours = 6,
+                    DurationDays = 7,
+                    Instructions = "Completar los 7 días obligatoriamente.",
+                    StartDate = now.AddDays(-1)
+                });
+                context.Prescriptions.Add(presc);
+            }
 
             await context.SaveChangesAsync();
         }

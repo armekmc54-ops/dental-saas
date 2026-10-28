@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS "AspNetUsers" (
     "LastName" VARCHAR(100) NOT NULL,
     "AvatarUrl" VARCHAR(500) NULL,
     "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "LastLoginAt" TIMESTAMPTZ NULL,
     "IsActive" BOOLEAN NOT NULL DEFAULT TRUE
 );
 
@@ -41,6 +42,36 @@ CREATE TABLE IF NOT EXISTS "AspNetUserRoles" (
     "UserId" UUID NOT NULL REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE,
     "RoleId" UUID NOT NULL REFERENCES "AspNetRoles"("Id") ON DELETE CASCADE,
     PRIMARY KEY ("UserId", "RoleId")
+);
+
+CREATE TABLE IF NOT EXISTS "AspNetUserClaims" (
+    "Id" SERIAL PRIMARY KEY,
+    "UserId" UUID NOT NULL REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE,
+    "ClaimType" TEXT NULL,
+    "ClaimValue" TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "AspNetUserLogins" (
+    "LoginProvider" VARCHAR(128) NOT NULL,
+    "ProviderKey" VARCHAR(128) NOT NULL,
+    "ProviderDisplayName" TEXT NULL,
+    "UserId" UUID NOT NULL REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE,
+    PRIMARY KEY ("LoginProvider", "ProviderKey")
+);
+
+CREATE TABLE IF NOT EXISTS "AspNetUserTokens" (
+    "UserId" UUID NOT NULL REFERENCES "AspNetUsers"("Id") ON DELETE CASCADE,
+    "LoginProvider" VARCHAR(128) NOT NULL,
+    "Name" VARCHAR(128) NOT NULL,
+    "Value" TEXT NULL,
+    PRIMARY KEY ("UserId", "LoginProvider", "Name")
+);
+
+CREATE TABLE IF NOT EXISTS "AspNetRoleClaims" (
+    "Id" SERIAL PRIMARY KEY,
+    "RoleId" UUID NOT NULL REFERENCES "AspNetRoles"("Id") ON DELETE CASCADE,
+    "ClaimType" TEXT NULL,
+    "ClaimValue" TEXT NULL
 );
 
 -- 2. INFRAESTRUCTURA CLÍNICA (Dentistas, Sillones, Servicios y Horarios)
@@ -52,6 +83,7 @@ CREATE TABLE IF NOT EXISTS "DentistProfiles" (
     "Biography" TEXT NULL,
     "CalendarColorHex" VARCHAR(20) NOT NULL DEFAULT '#2563EB',
     "MaxDailyAppointments" INT NOT NULL DEFAULT 12,
+    "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "IsActive" BOOLEAN NOT NULL DEFAULT TRUE
 );
 
@@ -110,6 +142,10 @@ CREATE TABLE IF NOT EXISTS "Patients" (
     "Email" VARCHAR(150) NULL,
     "DateOfBirth" DATE NULL,
     "Gender" VARCHAR(10) NULL,
+    "Address" TEXT NULL,
+    "EmergencyContactName" VARCHAR(150) NULL,
+    "EmergencyContactPhone" VARCHAR(30) NULL,
+    "GeneralNotes" TEXT NULL,
     
     -- Facturación Fiscal (CFDI México)
     "RequiresInvoice" BOOLEAN NOT NULL DEFAULT FALSE,
@@ -131,7 +167,7 @@ CREATE TABLE IF NOT EXISTS "MedicalAlerts" (
     "Description" VARCHAR(300) NOT NULL,
     "ActionProtocol" TEXT NULL,
     "IsPermanent" BOOLEAN NOT NULL DEFAULT TRUE,
-    "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    "ReportedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 4. CITAS, CONTROL DE FLUJO Y LISTA DE ESPERA
@@ -164,6 +200,7 @@ CREATE TABLE IF NOT EXISTS "Appointments" (
     "PatientBookingNotes" TEXT NULL,
     "ClinicalEvolutionNotes" TEXT NULL,
     
+    "RowVersion" BYTEA NULL,
     "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "UpdatedAt" TIMESTAMPTZ NULL
 );
@@ -173,6 +210,7 @@ CREATE INDEX IF NOT EXISTS "IX_Appointments_Chair_Slot" ON "Appointments"("Denta
 
 CREATE TABLE IF NOT EXISTS "WaitlistEntries" (
     "Id" SERIAL PRIMARY KEY,
+    "PatientId" INT NULL REFERENCES "Patients"("Id") ON DELETE SET NULL,
     "PatientName" VARCHAR(150) NOT NULL,
     "PhoneNumber" VARCHAR(30) NOT NULL,
     "Email" VARCHAR(150) NULL,
@@ -182,6 +220,8 @@ CREATE TABLE IF NOT EXISTS "WaitlistEntries" (
     "PreferredTimeRange" INT NOT NULL DEFAULT 0,
     "Status" INT NOT NULL DEFAULT 1,
     "ClaimToken" UUID NOT NULL DEFAULT uuid_generate_v4(),
+    "NotifiedAt" TIMESTAMPTZ NULL,
+    "ClaimExpiresAt" TIMESTAMPTZ NULL,
     "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -191,7 +231,8 @@ CREATE TABLE IF NOT EXISTS "OdontogramRecords" (
     "PatientId" INT NOT NULL REFERENCES "Patients"("Id") ON DELETE CASCADE,
     "DentistId" INT NOT NULL REFERENCES "DentistProfiles"("Id") ON DELETE RESTRICT,
     "SnapshotDate" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    "IsActiveSnapshot" BOOLEAN NOT NULL DEFAULT TRUE,
+    "SnapshotTitle" VARCHAR(200) NOT NULL DEFAULT 'Estado Inicial al Ingreso',
+    "IsCurrentActive" BOOLEAN NOT NULL DEFAULT TRUE,
     "TotalEstimatedCost" NUMERIC(10,2) NOT NULL DEFAULT 0.00,
     "ClinicalNotes" TEXT NULL,
     "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -204,8 +245,11 @@ CREATE TABLE IF NOT EXISTS "ToothSurfaceStates" (
     "Surface" INT NOT NULL DEFAULT 0, -- 0=Diente completo, 1=Oclusal, 2=Vestibular, 3=Lingual, 4=Mesial, 5=Distal
     "ConditionType" INT NOT NULL, -- 1=Caries, 2=Resin, 3=Crown, 4=Endodontics, 5=Extraction, 6=Missing
     "Status" INT NOT NULL DEFAULT 2, -- 1=Preexistente, 2=PlanTratamiento
+    "ServiceCatalogId" INT NULL REFERENCES "ServiceCatalogs"("Id") ON DELETE SET NULL,
     "EstimatedPrice" NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-    "Notes" VARCHAR(250) NULL
+    "ClinicalNotes" VARCHAR(250) NULL,
+    "CreatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "UpdatedAt" TIMESTAMPTZ NULL
 );
 
 -- 6. EXPEDIENTE DIGITALIZADO (MIGRACIÓN PAPEL) Y RECETAS
@@ -252,8 +296,28 @@ CREATE TABLE IF NOT EXISTS "PaymentRecords" (
     "PaymentMethod" INT NOT NULL DEFAULT 1, -- 1=Efectivo, 2=Tarjeta, 3=Transferencia
     "PaymentStatus" INT NOT NULL DEFAULT 2, -- 2=Paid
     "TransactionReference" VARCHAR(100) NULL,
+    "InvoiceNumber" VARCHAR(50) NULL,
     "PaidAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "Notes" TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "NotificationLogs" (
+    "Id" SERIAL PRIMARY KEY,
+    "AppointmentId" INT NULL REFERENCES "Appointments"("Id") ON DELETE SET NULL,
+    "WaitlistEntryId" INT NULL,
+    "RecipientName" VARCHAR(150) NOT NULL,
+    "RecipientContact" VARCHAR(100) NOT NULL,
+    "Channel" INT NOT NULL DEFAULT 1,
+    "NotificationType" INT NOT NULL DEFAULT 1,
+    "Status" INT NOT NULL DEFAULT 1,
+    "MessageBody" TEXT NULL,
+    "ExternalMessageId" VARCHAR(150) NULL,
+    "ErrorDetails" TEXT NULL,
+    "RetryCount" INT NOT NULL DEFAULT 0,
+    "ScheduledFor" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "SentAt" TIMESTAMPTZ NULL,
+    "DeliveredAt" TIMESTAMPTZ NULL,
+    "ConfirmedAt" TIMESTAMPTZ NULL
 );
 
 -- =============================================================================

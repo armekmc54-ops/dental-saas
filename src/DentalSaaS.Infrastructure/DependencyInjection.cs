@@ -22,9 +22,11 @@ public static class DependencyInjection
 
         services.AddDbContext<ApplicationDbContext>(options =>
         {
-            if (!string.IsNullOrEmpty(connectionString) && connectionString.Contains("Host="))
+            if (!string.IsNullOrEmpty(connectionString) &&
+                (connectionString.Contains("Host=") || connectionString.StartsWith("postgres://") || connectionString.StartsWith("postgresql://") || connectionString.Contains("neon.tech")))
             {
-                options.UseNpgsql(connectionString);
+                var npgsqlConn = FormatPostgresConnectionString(connectionString);
+                options.UseNpgsql(npgsqlConn);
             }
             else if (!string.IsNullOrEmpty(connectionString) && connectionString.Contains("Server="))
             {
@@ -72,5 +74,24 @@ public static class DependencyInjection
         services.AddHostedService<AppointmentReminderWorker>();
 
         return services;
+    }
+
+    private static string FormatPostgresConnectionString(string rawConn)
+    {
+        if (rawConn.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+            rawConn.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            var uri = new Uri(rawConn);
+            var userInfo = uri.UserInfo.Split(':');
+            var user = userInfo[0];
+            var password = userInfo.Length > 1 ? userInfo[1] : "";
+            var host = uri.Host;
+            var port = uri.Port > 0 ? uri.Port : 5432;
+            var database = uri.AbsolutePath.TrimStart('/');
+
+            return $"Host={host};Port={port};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+        }
+
+        return rawConn;
     }
 }
