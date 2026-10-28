@@ -12,6 +12,9 @@ using DentalSaaS.Infrastructure;
 using DentalSaaS.Infrastructure.Persistence;
 using DentalSaaS.Web.Hubs;
 
+// Habilitar compatibilidad con timestamps en PostgreSQL (Npgsql)
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Inyección de dependencias de infraestructura y servicios
